@@ -3,13 +3,13 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var LS_KEY = "parking.data.v1";
-  var MAX_HISTORY = 30, MAX_PHOTOS = 4;
+  var MAX_HISTORY = 20, MAX_PHOTOS = 4, DAY = 86400000;
   var GOOD_ACC = 15;        // metres; auto-save once the fix is this good
   var MAX_WAIT = 20000;     // ms; after this, save the best fix we have
   var WEAK_ACC = 50;        // metres; warn the user above this
 
   // record: {id, lat, lng, acc, savedAt, endedAt, floor, note, leaveBy, photos: [key]}
-  var records = [], activeId = null;
+  var records = [], activeId = null, keepDays = 30;   // keepDays 0 = delete as soon as parking ends
 
   /* ---------- helpers ---------- */
   function newId() { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -63,7 +63,7 @@
   /* ---------- storage ---------- */
   function persist() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ records: records, activeId: activeId }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ records: records, activeId: activeId, keepDays: keepDays }));
       return true;
     } catch (e) {
       toast("Could not save. The phone may be out of space.");
@@ -86,6 +86,7 @@
           };
         });
         activeId = typeof d.activeId === "string" && findRec(d.activeId) ? d.activeId : null;
+        if ([0, 7, 30, 90].indexOf(d.keepDays) !== -1) keepDays = d.keepDays;
       }
     } catch (e) {}
   }
@@ -203,9 +204,14 @@
     prune(); persist();
     toast(p ? "Parking spot saved" : "Saved without location");
   }
+  // Drop past spots older than the chosen retention, and anything beyond MAX_HISTORY.
   function prune() {
-    var ended = records.filter(function (r) { return r.id !== activeId; });
-    ended.slice(MAX_HISTORY).forEach(function (r) { removeRecord(r.id, true); });
+    var cutoff = Date.now() - keepDays * DAY, removed = 0, kept = 0;
+    records.filter(function (r) { return r.id !== activeId; }).forEach(function (r) {
+      if (keepDays === 0 || kept >= MAX_HISTORY || (r.endedAt || r.savedAt) < cutoff) { removeRecord(r.id, true); removed++; }
+      else kept++;
+    });
+    return removed;
   }
   function removeRecord(id, quiet) {
     var r = findRec(id); if (!r) return;
@@ -370,6 +376,7 @@
     list.textContent = "";
     $("hist-empty").hidden = past.length > 0;
     $("hist-clear").hidden = past.length === 0;
+    $("keep-days").value = String(keepDays);
     past.forEach(function (r) {
       var li = document.createElement("li"), det = document.createElement("details"), sum = document.createElement("summary");
       var main = document.createElement("div"); main.className = "h-main";
@@ -460,8 +467,8 @@
     var r = active(); if (!r) return;
     if (editTimer) { clearTimeout(editTimer); editTimer = null; }
     r.endedAt = Date.now(); activeId = null; here = null;
-    persist(); render(); window.scrollTo(0, 0);
-    toast("Parking ended. It's in History if you need it.");
+    prune(); persist(); render(); window.scrollTo(0, 0);
+    toast(keepDays === 0 ? "Parking ended and deleted." : "Parking ended. It stays in History for " + keepDays + " days.");
   });
   $("relocate").addEventListener("click", function () { var r = active(); if (r) startLocating(r.id); });
 
@@ -491,6 +498,16 @@
   $("loc-use").addEventListener("click", function () { if (best) finishLocating(); });
   $("loc-cancel").addEventListener("click", cancelLocating);
   $("loc-nogps").addEventListener("click", function () { finishLocating(true); });
+  $("keep-days").addEventListener("change", function (e) {
+    var v = Number(e.target.value);
+    var losing = records.filter(function (r) {
+      return r.id !== activeId && (v === 0 || (r.endedAt || r.savedAt) < Date.now() - v * DAY);
+    }).length;
+    if (losing && !confirm("This deletes " + losing + " older record" + (losing > 1 ? "s" : "") + " and their photos now. Continue?")) {
+      e.target.value = String(keepDays); return;
+    }
+    keepDays = v; prune(); persist(); render();
+  });
   $("hist-clear").addEventListener("click", function () {
     if (!confirm("Delete all past parking records and their photos?")) return;
     records.filter(function (r) { return r.id !== activeId; }).forEach(function (r) { removeRecord(r.id, true); });
@@ -500,7 +517,7 @@
   /* ---------- lifecycle ---------- */
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") { if (editTimer) { clearTimeout(editTimer); editTimer = null; persist(); } stopTracking(); }
-    else render();
+    else { if (prune()) persist(); render(); }
   });
   window.addEventListener("pagehide", function () { if (editTimer) { clearTimeout(editTimer); editTimer = null; persist(); } });
   setInterval(function () {
@@ -512,6 +529,7 @@
   }, 15000);
 
   load();
+  if (prune()) persist();
   render();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
