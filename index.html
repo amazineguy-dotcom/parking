@@ -134,6 +134,8 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: v
 .viewer .row .danger { color: #F07D8C; }
 .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px); }
+/* Pinch zoom still works; double-tap zoom is off so quick taps never zoom the page. */
+html, body, button, a, input, textarea, select, label, summary { touch-action: manipulation; }
 </style>
 </head>
 <body>
