@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parking Spot</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Parking">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#EEF1F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11161D" media="(prefers-color-scheme: dark)">
+<style>
+/* One column, sign-post feel: road-sign blue for the car, amber for warnings. */
+:root {
+  --bg: #EEF1F5;
+  --card: #FFFFFF;
+  --ink: #17202B;
+  --muted: #5F6B7A;
+  --line: #D5DCE5;
+  --accent: #1F5FBF;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E1EAF8;
+  --warn: #9A5B00;
+  --warn-soft: #FFF1D6;
+  --danger: #B42335;
+  --ok: #1E7A46;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161D; --card: #1A212B; --ink: #E6EBF1; --muted: #93A0B0; --line: #2B3542;
+    --accent: #6FA3F0; --accent-ink: #0B1626; --accent-soft: #1D2B40;
+    --warn: #F2B550; --warn-soft: #33280F; --danger: #F07D8C; --ok: #5FCB8D; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161D; --card: #1A212B; --ink: #E6EBF1; --muted: #93A0B0; --line: #2B3542;
+  --accent: #6FA3F0; --accent-ink: #0B1626; --accent-soft: #1D2B40;
+  --warn: #F2B550; --warn-soft: #33280F; --danger: #F07D8C; --ok: #5FCB8D; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.45;
+  -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; min-height: 44px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
+button:active { filter: brightness(.95); }
+button:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.danger { color: var(--danger); }
+
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+header { display: flex; align-items: center; gap: 10px; }
+.sign { width: 32px; height: 32px; border-radius: 7px; background: #1F5FBF; color: #fff; font-weight: 800; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.msg { margin: 0; }
+.banner { border-radius: 10px; padding: 10px 12px; font-size: 14px; background: var(--warn-soft); color: var(--warn); }
+.banner.bad { background: var(--warn-soft); color: var(--danger); }
+
+/* Empty state */
+.hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; padding: 28px 16px; }
+.big-btn { width: 180px; height: 180px; border-radius: 50%; font-size: 20px; line-height: 1.25; box-shadow: 0 6px 24px rgba(31, 95, 191, .28); }
+
+/* Locating */
+.locating { text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.acc-big { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pulse { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite ease-out; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(31, 95, 191, .5); } 100% { box-shadow: 0 0 0 22px rgba(31, 95, 191, 0); } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+.row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+/* Active: compass */
+.compass-card { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.dial { width: 200px; height: 200px; position: relative; }
+.dial svg { width: 100%; height: 100%; display: block; }
+#dial-face, #arrow { transform-origin: 100px 100px; transition: transform .25s ease-out; }
+.dist { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+
+/* Active: details */
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 15px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+.leave { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.leave input { min-height: 40px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.leave .left-ok { color: var(--ok); }
+.leave .left-soon { color: var(--warn); font-weight: 600; }
+.leave .left-over { color: var(--danger); font-weight: 600; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.field label { font-size: 13px; color: var(--muted); }
+.field input, .field textarea { width: 100%; font-size: 16px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.field textarea { min-height: 70px; resize: vertical; }
+.photos { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.thumb { width: 76px; height: 76px; padding: 0; border-radius: 8px; overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.add-photo { width: 76px; height: 76px; border: 1px dashed var(--muted); border-radius: 8px; display: grid; place-items: center; text-align: center; font-size: 13px; color: var(--muted); cursor: pointer; background: transparent; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.actions .wide { grid-column: 1 / -1; }
+
+/* History */
+.hist { list-style: none; margin: 0; padding: 0; }
+.hist li + li { border-top: 1px solid var(--line); }
+.hist details { padding: 10px 0; }
+.hist summary { list-style: none; cursor: pointer; display: flex; gap: 10px; align-items: baseline; }
+.hist summary::-webkit-details-marker { display: none; }
+.hist .h-main { flex: 1; min-width: 0; }
+.hist .h-title { font-weight: 600; }
+.hist .h-sub { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist .h-body { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
+.hist .h-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.hist .h-btns button { min-height: 38px; padding: 6px 12px; font-size: 14px; }
+.empty-hist { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* Photo viewer */
+.viewer { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .92); display: flex; flex-direction: column;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); gap: 12px; }
+.viewer img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+.viewer .row button { background: #222; color: #fff; border-color: #444; }
+.viewer .row .danger { color: #F07D8C; }
+.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="sign" aria-hidden="true">P</div>
+    <h1>Parking Spot</h1>
+  </header>
+
+  <!-- No active parking -->
+  <section id="view-empty" class="card hero" hidden>
+    <button id="save-spot" class="primary big-btn" type="button">Save my<br>parking spot</button>
+    <p class="msg muted small">Uses GPS. In an underground garage, save at the entrance where there is still signal, then add the floor and a photo of the pillar.</p>
+    <button id="save-nogps" type="button">Save without location</button>
+  </section>
+
+  <!-- Getting a GPS fix -->
+  <section id="view-locating" class="card locating" hidden>
+    <div class="pulse" aria-hidden="true"></div>
+    <div id="loc-title">Finding your location…</div>
+    <div id="loc-acc" class="acc-big" aria-live="polite">–</div>
+    <p id="loc-hint" class="msg muted small">Waiting for GPS. Accuracy improves over a few seconds.</p>
+    <p id="loc-err" class="banner bad" hidden></p>
+    <div class="row">
+      <button id="loc-use" class="primary" type="button" disabled>Use this location</button>
+      <button id="loc-cancel" type="button">Cancel</button>
+    </div>
+    <button id="loc-nogps" type="button" hidden>Save without location</button>
+  </section>
+
+  <!-- Active parking -->
+  <section id="view-active" hidden>
+    <div class="card compass-card" id="compass-card">
+      <div class="dial" aria-hidden="true">
+        <svg viewBox="0 0 200 200">
+          <g id="dial-face">
+            <circle cx="100" cy="100" r="92" fill="none" stroke="var(--line)" stroke-width="2"/>
+            <text x="100" y="26" text-anchor="middle" font-size="16" font-weight="700" fill="var(--danger)">N</text>
+            <text x="178" y="106" text-anchor="middle" font-size="13" fill="var(--muted)">E</text>
+            <text x="100" y="186" text-anchor="middle" font-size="13" fill="var(--muted)">S</text>
+            <text x="22" y="106" text-anchor="middle" font-size="13" fill="var(--muted)">W</text>
+          </g>
+          <g id="arrow">
+            <path d="M100 38 L126 120 L100 106 L74 120 Z" fill="var(--accent)"/>
+          </g>
+          <circle cx="100" cy="100" r="5" fill="var(--ink)"/>
+        </svg>
+      </div>
+      <div id="dist" class="dist">–</div>
+      <div id="dir-text" class="muted"></div>
+      <div id="here-acc" class="muted small"></div>
+      <button id="compass-btn" type="button" hidden>Turn on compass</button>
+    </div>
+    <p id="nogps-note" class="banner" hidden>No location was saved for this spot. Use the floor, notes and photos to find it, or update the location when you have signal.</p>
+    <p id="weak-note" class="banner" hidden></p>
+    <p id="over-note" class="banner bad" hidden></p>
+
+    <div class="card">
+      <h2>This spot</h2>
+      <dl class="facts">
+        <dt>Parked</dt><dd id="f-parked"></dd>
+        <dt>Duration</dt><dd id="f-duration"></dd>
+        <dt>Accuracy</dt><dd id="f-acc"></dd>
+      </dl>
+      <div class="field">
+        <label for="leave-by">Leave by (reminder shows when the app is open)</label>
+        <div class="leave">
+          <input id="leave-by" type="time">
+          <span id="leave-left"></span>
+          <button id="leave-clear" type="button" hidden>Clear</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="floor">Floor / spot</label>
+        <input id="floor" type="text" placeholder="e.g. B2, C15" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="note">Notes</label>
+        <textarea id="note" placeholder="e.g. Near the elevator, yellow zone"></textarea>
+      </div>
+      <div class="photos" id="photos"></div>
+    </div>
+
+    <div class="actions">
+      <button id="nav-apple" class="primary" type="button">Apple Maps</button>
+      <button id="nav-google" class="primary" type="button">Google Maps</button>
+      <button id="share" type="button">Share spot</button>
+      <button id="relocate" type="button">Update location</button>
+      <button id="end" class="wide" type="button">I've left — end parking</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>History</h2>
+    <ul id="hist" class="hist"></ul>
+    <p id="hist-empty" class="empty-hist">Past parking spots will show here.</p>
+    <div class="row" style="justify-content:flex-start;margin-top:10px">
+      <button id="hist-clear" class="danger" type="button" hidden>Clear history</button>
+    </div>
+  </section>
+
+  <p class="msg muted small">Everything stays on this phone. Your location is only sent to Apple or Google Maps when you tap a map button.</p>
+</div>
+
+<input id="photo-input" type="file" accept="image/*" capture="environment" hidden>
+
+<div id="viewer" class="viewer" hidden>
+  <img id="viewer-img" alt="Parking photo">
+  <div class="row">
+    <button id="viewer-del" class="danger" type="button">Delete photo</button>
+    <button id="viewer-close" type="button">Close</button>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
